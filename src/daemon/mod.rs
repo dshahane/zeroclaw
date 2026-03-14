@@ -99,6 +99,7 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
         ));
     }
 
+    #[cfg(feature = "sqlite")]
     if config.cron.enabled {
         let scheduler_cfg = config.clone();
         handles.push(spawn_component_supervisor(
@@ -113,6 +114,13 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
     } else {
         crate::health::mark_component_ok("scheduler");
         tracing::info!("Cron disabled; scheduler supervisor not started");
+    }
+    #[cfg(not(feature = "sqlite"))]
+    {
+        crate::health::mark_component_ok("scheduler");
+        if config.cron.enabled {
+            tracing::warn!("Cron is enabled in config but ZeroClaw was built without sqlite feature; scheduler disabled.");
+        }
     }
 
     println!("🧠 ZeroClaw daemon started");
@@ -246,6 +254,7 @@ async fn run_heartbeat_worker(config: Config) -> Result<()> {
                         output
                     };
                     if let Some((channel, target)) = &delivery {
+                        #[cfg(feature = "sqlite")]
                         if let Err(e) = crate::cron::scheduler::deliver_announcement(
                             &config,
                             channel,
@@ -259,6 +268,11 @@ async fn run_heartbeat_worker(config: Config) -> Result<()> {
                                 format!("delivery failed: {e}"),
                             );
                             tracing::warn!("Heartbeat delivery failed: {e}");
+                        }
+                        #[cfg(not(feature = "sqlite"))]
+                        {
+                            let _ = (channel, target, announcement);
+                            tracing::warn!("Heartbeat delivery failed: sqlite feature not enabled, cannot deliver to channels via cron scheduler");
                         }
                     }
                 }

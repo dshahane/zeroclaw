@@ -20,11 +20,17 @@ pub mod browser_open;
 pub mod cli_discovery;
 pub mod composio;
 pub mod content_search;
+#[cfg(feature = "sqlite")]
 pub mod cron_add;
+#[cfg(feature = "sqlite")]
 pub mod cron_list;
+#[cfg(feature = "sqlite")]
 pub mod cron_remove;
+#[cfg(feature = "sqlite")]
 pub mod cron_run;
+#[cfg(feature = "sqlite")]
 pub mod cron_runs;
+#[cfg(feature = "sqlite")]
 pub mod cron_update;
 pub mod delegate;
 pub mod file_edit;
@@ -59,11 +65,17 @@ pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
 pub use composio::ComposioTool;
 pub use content_search::ContentSearchTool;
+#[cfg(feature = "sqlite")]
 pub use cron_add::CronAddTool;
+#[cfg(feature = "sqlite")]
 pub use cron_list::CronListTool;
+#[cfg(feature = "sqlite")]
 pub use cron_remove::CronRemoveTool;
+#[cfg(feature = "sqlite")]
 pub use cron_run::CronRunTool;
+#[cfg(feature = "sqlite")]
 pub use cron_runs::CronRunsTool;
+#[cfg(feature = "sqlite")]
 pub use cron_update::CronUpdateTool;
 pub use delegate::DelegateTool;
 pub use file_edit::FileEditTool;
@@ -86,6 +98,7 @@ pub use model_routing_config::ModelRoutingConfigTool;
 pub use pdf_read::PdfReadTool;
 pub use proxy_config::ProxyConfigTool;
 pub use pushover::PushoverTool;
+#[cfg(feature = "sqlite")]
 pub use schedule::ScheduleTool;
 #[allow(unused_imports)]
 pub use schema::{CleaningStrategy, SchemaCleanr};
@@ -216,15 +229,22 @@ pub fn all_tools_with_runtime(
         Arc::new(FileEditTool::new(security.clone())),
         Arc::new(GlobSearchTool::new(security.clone())),
         Arc::new(ContentSearchTool::new(security.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(CronAddTool::new(config.clone(), security.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(CronListTool::new(config.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(CronRemoveTool::new(config.clone(), security.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(CronUpdateTool::new(config.clone(), security.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(CronRunTool::new(config.clone(), security.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(CronRunsTool::new(config.clone())),
         Arc::new(MemoryStoreTool::new(memory.clone(), security.clone())),
         Arc::new(MemoryRecallTool::new(memory.clone())),
         Arc::new(MemoryForgetTool::new(memory, security.clone())),
+        #[cfg(feature = "sqlite")]
         Arc::new(ScheduleTool::new(security.clone(), root_config.clone())),
         Arc::new(ModelRoutingConfigTool::new(
             config.clone(),

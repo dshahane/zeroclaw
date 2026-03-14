@@ -1,3 +1,4 @@
+#![cfg(feature = "whatsapp-web")]
 //! WhatsApp Web channel using wa-rs (native Rust implementation)
 //!
 //! This channel provides direct WhatsApp Web integration with:

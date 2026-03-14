@@ -54,6 +54,7 @@ mod rag {
 }
 mod config;
 mod cost;
+#[cfg(feature = "sqlite")]
 mod cron;
 mod daemon;
 mod doctor;
@@ -65,6 +66,7 @@ mod hooks;
 mod identity;
 mod integrations;
 mod memory;
+#[cfg(feature = "sqlite")]
 mod migration;
 mod multimodal;
 mod observability;
@@ -1043,7 +1045,11 @@ async fn main() -> Result<()> {
             tools,
         } => handle_estop_command(&config, estop_command, level, domains, tools),
 
+        #[cfg(feature = "sqlite")]
         Commands::Cron { cron_command } => cron::handle_command(cron_command, &config),
+        #[cfg(not(feature = "sqlite"))]
+        Commands::Cron { .. } => bail!("Memory persistence (Cron) requires 'sqlite' feature, which is disabled in this build."),
+
 
         Commands::Models { model_command } => match model_command {
             ModelCommands::Refresh {
@@ -1140,9 +1146,12 @@ async fn main() -> Result<()> {
 
         Commands::Skills { skill_command } => skills::handle_command(skill_command, &config),
 
+        #[cfg(feature = "sqlite")]
         Commands::Migrate { migrate_command } => {
             migration::handle_command(migrate_command, &config).await
         }
+        #[cfg(not(feature = "sqlite"))]
+        Commands::Migrate { .. } => bail!("Migration requires 'sqlite' feature, which is disabled in this build."),
 
         Commands::Memory { memory_command } => {
             memory::cli::handle_command(memory_command, &config).await

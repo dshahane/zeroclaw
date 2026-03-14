@@ -19,6 +19,7 @@ pub mod cli;
 pub mod dingtalk;
 pub mod discord;
 pub mod email_channel;
+#[cfg(feature = "sqlite")]
 pub mod imessage;
 pub mod irc;
 #[cfg(feature = "channel-lark")]
@@ -49,6 +50,7 @@ pub use cli::CliChannel;
 pub use dingtalk::DingTalkChannel;
 pub use discord::DiscordChannel;
 pub use email_channel::EmailChannel;
+#[cfg(feature = "sqlite")]
 pub use imessage::IMessageChannel;
 pub use irc::IrcChannel;
 #[cfg(feature = "channel-lark")]
@@ -3008,6 +3010,7 @@ fn collect_configured_channels(
         });
     }
 
+    #[cfg(feature = "sqlite")]
     if let Some(ref im) = config.channels_config.imessage {
         channels.push(ConfiguredChannel {
             display_name: "iMessage",

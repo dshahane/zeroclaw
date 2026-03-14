@@ -226,11 +226,13 @@ pub async fn dispatch_peripheral_signal(
 /// Built once at daemon startup to avoid re-parsing cron expressions
 /// on every scheduler tick.
 #[derive(Clone)]
+#[cfg(feature = "sqlite")]
 pub struct SopCronCache {
     /// (sop_name, raw_expression, parsed_schedule)
     schedules: Vec<(String, String, cron::Schedule)>,
 }
 
+#[cfg(feature = "sqlite")]
 impl SopCronCache {
     /// Build cache from the current engine state.
     ///
@@ -286,6 +288,7 @@ impl SopCronCache {
     }
 }
 
+#[cfg(feature = "sqlite")]
 /// Check all cached cron SOP triggers for firings in the window
 /// `(last_check, now]` and dispatch events for each.
 ///

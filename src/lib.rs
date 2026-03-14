@@ -44,6 +44,7 @@ pub(crate) mod auth;
 pub mod channels;
 pub mod config;
 pub(crate) mod cost;
+#[cfg(feature = "sqlite")]
 pub(crate) mod cron;
 pub(crate) mod daemon;
 pub(crate) mod doctor;
@@ -55,6 +56,7 @@ pub mod hooks;
 pub(crate) mod identity;
 pub(crate) mod integrations;
 pub mod memory;
+#[cfg(feature = "sqlite")]
 pub(crate) mod migration;
 pub(crate) mod multimodal;
 pub mod observability;

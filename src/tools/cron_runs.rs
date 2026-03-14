@@ -1,3 +1,4 @@
+#![cfg(feature = "sqlite")]
 use super::traits::{Tool, ToolResult};
 use crate::config::Config;
 use crate::cron;
@@ -85,7 +86,7 @@ impl Tool for CronRunsTool {
                         started_at: run.started_at,
                         finished_at: run.finished_at,
                         status: run.status,
-                        output: run.output.map(|out| truncate(&out, MAX_RUN_OUTPUT_CHARS)),
+                        output: run.output.as_deref().map(|out| truncate(out, MAX_RUN_OUTPUT_CHARS)),
                         duration_ms: run.duration_ms,
                     })
                     .collect();

@@ -1,3 +1,4 @@
+#![cfg(feature = "sqlite")]
 use super::sqlite::SqliteMemory;
 use super::traits::{Memory, MemoryCategory, MemoryEntry};
 use async_trait::async_trait;

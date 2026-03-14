@@ -206,6 +206,7 @@ pub async fn handle_api_tools(
 }
 
 /// GET /api/cron — list cron jobs
+#[cfg(feature = "sqlite")]
 pub async fn handle_api_cron_list(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -242,6 +243,7 @@ pub async fn handle_api_cron_list(
 }
 
 /// POST /api/cron — add a new cron job
+#[cfg(feature = "sqlite")]
 pub async fn handle_api_cron_add(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -283,6 +285,7 @@ pub async fn handle_api_cron_add(
 }
 
 /// DELETE /api/cron/:id — remove a cron job
+#[cfg(feature = "sqlite")]
 pub async fn handle_api_cron_delete(
     State(state): State<AppState>,
     headers: HeaderMap,

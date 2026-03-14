@@ -2,15 +2,20 @@ pub mod backend;
 pub mod chunker;
 pub mod cli;
 pub mod embeddings;
+#[cfg(feature = "sqlite")]
 pub mod hygiene;
+#[cfg(feature = "sqlite")]
 pub mod lucid;
 pub mod markdown;
 pub mod none;
 #[cfg(feature = "memory-postgres")]
 pub mod postgres;
 pub mod qdrant;
+#[cfg(feature = "sqlite")]
 pub mod response_cache;
+#[cfg(feature = "sqlite")]
 pub mod snapshot;
+#[cfg(feature = "sqlite")]
 pub mod sqlite;
 pub mod traits;
 pub mod vector;
@@ -20,13 +25,16 @@ pub use backend::{
     classify_memory_backend, default_memory_backend_key, memory_backend_profile,
     selectable_memory_backends, MemoryBackendKind, MemoryBackendProfile,
 };
+#[cfg(feature = "sqlite")]
 pub use lucid::LucidMemory;
 pub use markdown::MarkdownMemory;
 pub use none::NoneMemory;
 #[cfg(feature = "memory-postgres")]
 pub use postgres::PostgresMemory;
 pub use qdrant::QdrantMemory;
+#[cfg(feature = "sqlite")]
 pub use response_cache::ResponseCache;
+#[cfg(feature = "sqlite")]
 pub use sqlite::SqliteMemory;
 pub use traits::Memory;
 #[allow(unused_imports)]
@@ -40,20 +48,33 @@ use std::sync::Arc;
 fn create_memory_with_builders<F, G>(
     backend_name: &str,
     workspace_dir: &Path,
-    mut sqlite_builder: F,
+    sqlite_builder: F,
     mut postgres_builder: G,
     unknown_context: &str,
 ) -> anyhow::Result<Box<dyn Memory>>
 where
-    F: FnMut() -> anyhow::Result<SqliteMemory>,
+    F: FnMut() -> anyhow::Result<Box<dyn Memory>>,
     G: FnMut() -> anyhow::Result<Box<dyn Memory>>,
 {
     match classify_memory_backend(backend_name) {
-        MemoryBackendKind::Sqlite => Ok(Box::new(sqlite_builder()?)),
+        #[cfg(feature = "sqlite")]
+        MemoryBackendKind::Sqlite => sqlite_builder(),
+        #[cfg(not(feature = "sqlite"))]
+        MemoryBackendKind::Sqlite => {
+            let _ = sqlite_builder;
+            anyhow::bail!("Memory backend 'sqlite' requires 'sqlite' feature, which is disabled in this build.")
+        }
+        #[cfg(feature = "sqlite")]
         MemoryBackendKind::Lucid => {
             let local = sqlite_builder()?;
             Ok(Box::new(LucidMemory::new(workspace_dir, local)))
         }
+        #[cfg(not(feature = "sqlite"))]
+        MemoryBackendKind::Lucid => {
+            let _ = sqlite_builder;
+            anyhow::bail!("Memory backend 'lucid' requires 'sqlite' feature for local storage, which is disabled in this build.")
+        }
+
         MemoryBackendKind::Postgres => postgres_builder(),
         MemoryBackendKind::Qdrant | MemoryBackendKind::Markdown => {
             Ok(Box::new(MarkdownMemory::new(workspace_dir)))
@@ -222,11 +243,13 @@ pub fn create_memory_with_storage_and_routes(
     let resolved_embedding = resolve_embedding_config(config, embedding_routes, api_key);
 
     // Best-effort memory hygiene/retention pass (throttled by state file).
+    #[cfg(feature = "sqlite")]
     if let Err(e) = hygiene::run_if_due(config, workspace_dir) {
         tracing::warn!("memory hygiene skipped: {e}");
     }
 
     // If snapshot_on_hygiene is enabled, export core memories during hygiene.
+    #[cfg(feature = "sqlite")]
     if config.snapshot_enabled
         && config.snapshot_on_hygiene
         && matches!(
@@ -241,6 +264,7 @@ pub fn create_memory_with_storage_and_routes(
 
     // Auto-hydration: if brain.db is missing but MEMORY_SNAPSHOT.md exists,
     // restore the "soul" from the snapshot before creating the backend.
+    #[cfg(feature = "sqlite")]
     if config.auto_hydrate
         && matches!(
             backend_kind,
@@ -261,11 +285,12 @@ pub fn create_memory_with_storage_and_routes(
         }
     }
 
+    #[cfg(feature = "sqlite")]
     fn build_sqlite_memory(
         config: &MemoryConfig,
         workspace_dir: &Path,
         resolved_embedding: &ResolvedEmbeddingConfig,
-    ) -> anyhow::Result<SqliteMemory> {
+    ) -> anyhow::Result<Box<dyn Memory>> {
         let embedder: Arc<dyn embeddings::EmbeddingProvider> =
             Arc::from(embeddings::create_embedding_provider(
                 &resolved_embedding.provider,
@@ -283,7 +308,7 @@ pub fn create_memory_with_storage_and_routes(
             config.embedding_cache_size,
             config.sqlite_open_timeout_secs,
         )?;
-        Ok(mem)
+        Ok(Box::new(mem))
     }
 
     #[cfg(feature = "memory-postgres")]
@@ -363,7 +388,12 @@ pub fn create_memory_with_storage_and_routes(
     create_memory_with_builders(
         &backend_name,
         workspace_dir,
-        || build_sqlite_memory(config, workspace_dir, &resolved_embedding),
+        || {
+            #[cfg(feature = "sqlite")]
+            { build_sqlite_memory(config, workspace_dir, &resolved_embedding) }
+            #[cfg(not(feature = "sqlite"))]
+            { anyhow::bail!("Memory backend 'sqlite' requires 'sqlite' feature, which is disabled in this build.") }
+        },
         || build_postgres_memory(storage_provider),
         "",
     )
@@ -391,19 +421,26 @@ pub fn create_memory_for_migration(
     create_memory_with_builders(
         backend,
         workspace_dir,
-        || SqliteMemory::new(workspace_dir),
+        || {
+            #[cfg(feature = "sqlite")]
+            { Ok(Box::new(SqliteMemory::new(workspace_dir)?)) }
+            #[cfg(not(feature = "sqlite"))]
+            { anyhow::bail!("Memory backend 'sqlite' requires 'sqlite' feature, which is disabled in this build.") }
+        },
         || anyhow::bail!("postgres backend is not available in migration context"),
         " during migration",
     )
 }
 
 /// Factory: create an optional response cache from config.
+#[cfg(feature = "sqlite")]
 pub fn create_response_cache(config: &MemoryConfig, workspace_dir: &Path) -> Option<ResponseCache> {
     if !config.response_cache_enabled {
         return None;
     }
 
-    match ResponseCache::new(
+    #[cfg(feature = "sqlite")]
+    match response_cache::ResponseCache::new(
         workspace_dir,
         config.response_cache_ttl_minutes,
         config.response_cache_max_entries,
@@ -420,6 +457,11 @@ pub fn create_response_cache(config: &MemoryConfig, workspace_dir: &Path) -> Opt
             tracing::warn!("Response cache disabled due to error: {e}");
             None
         }
+    }
+    #[cfg(not(feature = "sqlite"))]
+    {
+        tracing::warn!("Response cache skipped: building without 'sqlite' feature");
+        None
     }
 }
 

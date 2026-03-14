@@ -134,13 +134,13 @@ impl SecretStore {
         );
 
         let (nonce_bytes, ciphertext) = blob.split_at(NONCE_LEN);
-        let nonce = Nonce::from_slice(nonce_bytes);
+        let nonce = Nonce::clone_from_slice(nonce_bytes);
         let key_bytes = self.load_or_create_key()?;
         let key = Key::from_slice(&key_bytes);
         let cipher = ChaCha20Poly1305::new(key);
 
         let plaintext_bytes = cipher
-            .decrypt(nonce, ciphertext)
+            .decrypt(&nonce, ciphertext)
             .map_err(|_| anyhow::anyhow!("Decryption failed — wrong key or tampered data"))?;
 
         String::from_utf8(plaintext_bytes)

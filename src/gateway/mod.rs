@@ -31,16 +31,18 @@ use axum::{
     extract::{ConnectInfo, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json},
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Router,
 };
+#[cfg(feature = "sqlite")]
+use axum::routing::delete;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::timeout::TimeoutLayer;
+// use tower_http::timeout::TimeoutLayer; // Qualify below to avoid unused warning glitch
 use uuid::Uuid;
 
 /// Maximum request body size (64KB) — prevents memory exhaustion
@@ -659,7 +661,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .layer(RequestBodyLimitLayer::new(1_048_576));
 
     // Build router with middleware
-    let app = Router::new()
+    let mut app = Router::new()
         // ── Admin routes (for CLI management) ──
         .route("/admin/shutdown", post(handle_admin_shutdown))
         .route("/admin/paircode", get(handle_admin_paircode))
@@ -678,10 +680,17 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         // ── Web Dashboard API routes ──
         .route("/api/status", get(api::handle_api_status))
         .route("/api/config", get(api::handle_api_config_get))
-        .route("/api/tools", get(api::handle_api_tools))
-        .route("/api/cron", get(api::handle_api_cron_list))
-        .route("/api/cron", post(api::handle_api_cron_add))
-        .route("/api/cron/{id}", delete(api::handle_api_cron_delete))
+        .route("/api/tools", get(api::handle_api_tools));
+
+    #[cfg(feature = "sqlite")]
+    {
+        app = app
+            .route("/api/cron", get(api::handle_api_cron_list))
+            .route("/api/cron", post(api::handle_api_cron_add))
+            .route("/api/cron/{id}", delete(api::handle_api_cron_delete));
+    }
+
+    let mut app = app
         .route("/api/integrations", get(api::handle_api_integrations))
         .route(
             "/api/integrations/settings",
@@ -692,8 +701,14 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
             get(api::handle_api_doctor).post(api::handle_api_doctor),
         )
         .route("/api/memory", get(api::handle_api_memory_list))
-        .route("/api/memory", post(api::handle_api_memory_store))
-        .route("/api/memory/{key}", delete(api::handle_api_memory_delete))
+        .route("/api/memory", post(api::handle_api_memory_store));
+
+    #[cfg(feature = "sqlite")]
+    {
+        app = app.route("/api/memory/{key}", delete(api::handle_api_memory_delete));
+    }
+
+    let app = app
         .route("/api/cost", get(api::handle_api_cost))
         .route("/api/cli-tools", get(api::handle_api_cli_tools))
         .route("/api/health", get(api::handle_api_health))
@@ -707,10 +722,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .merge(config_put_router)
         .with_state(state)
         .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::REQUEST_TIMEOUT,
-            Duration::from_secs(REQUEST_TIMEOUT_SECS),
-        ))
+        .layer(tower_http::timeout::TimeoutLayer::new(Duration::from_secs(
+            REQUEST_TIMEOUT_SECS,
+        )))
         // ── SPA fallback: non-API GET requests serve index.html ──
         .fallback(get(static_files::handle_spa_fallback));
 

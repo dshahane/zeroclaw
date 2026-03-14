@@ -1,3 +1,4 @@
+#![cfg(feature = "sqlite")]
 use super::traits::{Tool, ToolResult};
 use crate::config::Config;
 use crate::cron::{self, JobType};

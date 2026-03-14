@@ -1,3 +1,4 @@
+#![cfg(feature = "whatsapp-web")]
 //! Custom wa-rs storage backend using ZeroClaw's rusqlite
 //!
 //! This module implements all 4 wa-rs storage traits using rusqlite directly,
