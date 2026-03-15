@@ -37,6 +37,7 @@ pub struct Agent {
     classification_config: crate::config::QueryClassificationConfig,
     available_hints: Vec<String>,
     route_model_by_hint: HashMap<String, String>,
+    session_id: Option<String>,
 }
 
 pub struct AgentBuilder {
@@ -58,6 +59,7 @@ pub struct AgentBuilder {
     classification_config: Option<crate::config::QueryClassificationConfig>,
     available_hints: Option<Vec<String>>,
     route_model_by_hint: Option<HashMap<String, String>>,
+    session_id: Option<String>,
 }
 
 impl AgentBuilder {
@@ -81,6 +83,7 @@ impl AgentBuilder {
             classification_config: None,
             available_hints: None,
             route_model_by_hint: None,
+            session_id: None,
         }
     }
 
@@ -180,6 +183,11 @@ impl AgentBuilder {
         self
     }
 
+    pub fn session_id(mut self, session_id: String) -> Self {
+        self.session_id = Some(session_id);
+        self
+    }
+
     pub fn build(self) -> Result<Agent> {
         let tools = self
             .tools
@@ -223,6 +231,7 @@ impl AgentBuilder {
             classification_config: self.classification_config.unwrap_or_default(),
             available_hints: self.available_hints.unwrap_or_default(),
             route_model_by_hint: self.route_model_by_hint.unwrap_or_default(),
+            session_id: self.session_id,
         })
     }
 }
@@ -238,6 +247,14 @@ impl Agent {
 
     pub fn clear_history(&mut self) {
         self.history.clear();
+    }
+
+    pub fn set_session_id(&mut self, id: Option<String>) {
+        self.session_id = id;
+    }
+
+    pub fn session_id(&self) -> Option<&str> {
+        self.session_id.as_deref()
     }
 
     pub fn from_config(config: &Config) -> Result<Self> {
@@ -476,13 +493,13 @@ impl Agent {
         if self.auto_save {
             let _ = self
                 .memory
-                .store("user_msg", user_message, MemoryCategory::Conversation, None)
+                .store("user_msg", user_message, MemoryCategory::Conversation, self.session_id())
                 .await;
         }
 
         let context = self
             .memory_loader
-            .load_context(self.memory.as_ref(), user_message)
+            .load_context(self.memory.as_ref(), user_message, self.session_id())
             .await
             .unwrap_or_default();
 
