@@ -661,7 +661,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .layer(RequestBodyLimitLayer::new(1_048_576));
 
     // Build router with middleware
-    let mut app = Router::new()
+    let app = Router::new()
         // ── Admin routes (for CLI management) ──
         .route("/admin/shutdown", post(handle_admin_shutdown))
         .route("/admin/paircode", get(handle_admin_paircode))
@@ -683,14 +683,12 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/tools", get(api::handle_api_tools));
 
     #[cfg(feature = "sqlite")]
-    {
-        app = app
-            .route("/api/cron", get(api::handle_api_cron_list))
-            .route("/api/cron", post(api::handle_api_cron_add))
-            .route("/api/cron/{id}", delete(api::handle_api_cron_delete));
-    }
+    let app = app
+        .route("/api/cron", get(api::handle_api_cron_list))
+        .route("/api/cron", post(api::handle_api_cron_add))
+        .route("/api/cron/{id}", delete(api::handle_api_cron_delete));
 
-    let mut app = app
+    let app = app
         .route("/api/integrations", get(api::handle_api_integrations))
         .route(
             "/api/integrations/settings",
@@ -704,9 +702,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/memory", post(api::handle_api_memory_store));
 
     #[cfg(feature = "sqlite")]
-    {
-        app = app.route("/api/memory/{key}", delete(api::handle_api_memory_delete));
-    }
+    let app = app.route("/api/memory/{key}", delete(api::handle_api_memory_delete));
 
     let app = app
         .route("/api/cost", get(api::handle_api_cost))

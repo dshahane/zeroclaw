@@ -22,7 +22,7 @@
 
 use anyhow::{Context, Result};
 use chacha20poly1305::aead::{Aead, KeyInit, OsRng};
-use chacha20poly1305::{AeadCore, ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::{AeadCore, ChaCha20Poly1305, Nonce};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -59,8 +59,8 @@ impl SecretStore {
         }
 
         let key_bytes = self.load_or_create_key()?;
-        let key = Key::from_slice(&key_bytes);
-        let cipher = ChaCha20Poly1305::new(key);
+        let cipher = ChaCha20Poly1305::new_from_slice(&key_bytes)
+            .map_err(|e| anyhow::anyhow!("Invalid key length: {e}"))?;
 
         let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
         let ciphertext = cipher
@@ -134,10 +134,10 @@ impl SecretStore {
         );
 
         let (nonce_bytes, ciphertext) = blob.split_at(NONCE_LEN);
-        let nonce = Nonce::clone_from_slice(nonce_bytes);
+        let nonce = Nonce::from_slice(nonce_bytes);
         let key_bytes = self.load_or_create_key()?;
-        let key = Key::from_slice(&key_bytes);
-        let cipher = ChaCha20Poly1305::new(key);
+        let cipher = ChaCha20Poly1305::new_from_slice(&key_bytes)
+            .map_err(|e| anyhow::anyhow!("Invalid key length: {e}"))?;
 
         let plaintext_bytes = cipher
             .decrypt(&nonce, ciphertext)
